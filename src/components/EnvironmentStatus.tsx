@@ -60,7 +60,7 @@ const EnvironmentStatus = () => {
     try {
       // Check if Firebase config is available
       const firebaseConfig = {
-        apiKey: "AIzaSyDrNM4bWhdh_7sNQ65o4notdD6w7NMDSdU",
+        apiKey: "YOUR_FIREBASE_API_KEY_HERE",
         authDomain: "sample-firebase-ai-app-948ed.firebaseapp.com",
         projectId: "sample-firebase-ai-app-948ed"
       };
@@ -149,7 +149,7 @@ const EnvironmentStatus = () => {
 
   const checkGeminiAPI = async (): Promise<ServiceStatus> => {
     try {
-      const apiKey = localStorage.getItem('gemini-api-key') || "AIzaSyBX5qt3MT2bI6t87FHUhEgwHMfEWDSqRrs";
+      const apiKey = localStorage.getItem('gemini-api-key') || "YOUR_GEMINI_API_KEY_HERE";
       
       if (!apiKey) {
         return {

@@ -15,14 +15,18 @@ import Level2 from "./pages/Level2";
 import Level3 from "./pages/Level3";
 import Level4 from "./pages/Level4";
 import Level5 from "./pages/Level5";
+import MobileWireless from "./pages/MobileWireless";
+import MobileApp from "./pages/MobileAppBasic";
 import NotFound from "./pages/NotFound";
 import StartSession from "./pages/StartSession";
 import { initializeAPIKeys } from "./lib/apiUtils";
+import { refreshAPIKeys } from "./lib/initializeKeys";
 import ErrorBoundary from "./components/ErrorBoundary";
 const queryClient = new QueryClient();
 
-// Initialize API keys on app startup
+// Initialize and refresh API keys on app startup
 initializeAPIKeys();
+refreshAPIKeys();
 
 const App = () => {
 
@@ -67,6 +71,8 @@ const App = () => {
                 <Route path="/level3" element={<ErrorBoundary><Level3 /></ErrorBoundary>} />
                 <Route path="/level4" element={<ErrorBoundary><Level4 /></ErrorBoundary>} />
                 <Route path="/level5" element={<ErrorBoundary><Level5 /></ErrorBoundary>} />
+                <Route path="/mobile-wireless/:sessionId" element={<MobileWireless />} />
+                <Route path="/mobile-app" element={<MobileApp />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </HashRouter>

@@ -65,6 +65,9 @@ const ProctoringPipeline: React.FC<ProctoringPipelineProps> = ({ level, onComple
   const [testMode, setTestMode] = useState(false);
   const [testFootage, setTestFootage] = useState<string | null>(null);
   const [processingMode, setProcessingMode] = useState<'live' | 'test'>('live');
+  const [ipCamUrl, setIpCamUrl] = useState<string>("http://100.82.86.42:8080/shot.jpg");
+  const [usePhoneCam, setUsePhoneCam] = useState<boolean>(true);
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   // Level-specific features
   const getLevelFeatures = () => {
@@ -217,6 +220,25 @@ const ProctoringPipeline: React.FC<ProctoringPipelineProps> = ({ level, onComple
         performSimulationAnalysis();
       }
 
+      // Optionally analyze phone snapshot in parallel (live mode only)
+      if (processingMode === 'live' && isActive && usePhoneCam && ipCamUrl) {
+        try {
+          const snapshotResp = await fetch(`http://localhost:8000/proxy-snapshot?url=${encodeURIComponent(ipCamUrl)}`, { cache: 'no-store' });
+          if (snapshotResp.ok) {
+            const snapBlob = await snapshotResp.blob();
+            const fd = new FormData();
+            fd.append('file', snapBlob, 'phone.jpg');
+            fd.append('session_id', sessionId || `level${level}_${Date.now()}`);
+            await fetch('http://localhost:8000/analyze-frame', {
+              method: 'POST',
+              body: fd,
+            });
+          }
+        } catch (e) {
+          // ignore phone snapshot errors silently
+        }
+      }
+
     } catch (error) {
       console.error('Analysis error:', error);
       addAlert('audio_anomaly', 'medium', 'Analysis temporarily unavailable');
@@ -301,6 +323,21 @@ const ProctoringPipeline: React.FC<ProctoringPipelineProps> = ({ level, onComple
         setIsPaused(false);
         toast.success(`Level ${level} proctoring session started!`);
         console.log('Live session started successfully');
+
+        // Start session on backend
+        try {
+          const fd = new FormData();
+          fd.append('student_id', 'student1');
+          fd.append('proctoring_level', String(level));
+          const resp = await fetch('http://localhost:8000/api/session/start', {
+            method: 'POST',
+            body: fd,
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data.session_id) setSessionId(data.session_id);
+          }
+        } catch {}
       } else {
         console.error('Video ref is null');
         toast.error("Video element not ready");
@@ -360,6 +397,33 @@ const ProctoringPipeline: React.FC<ProctoringPipelineProps> = ({ level, onComple
     }
 
     toast.info("Session ended");
+
+    // End session and download report
+    (async () => {
+      if (!sessionId) return;
+      try {
+        const fd = new FormData();
+        fd.append('session_id', sessionId);
+        const resp = await fetch('http://localhost:8000/api/session/end', {
+          method: 'POST',
+          body: fd,
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.report) {
+            const blob = new Blob([JSON.stringify(data.report, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `proctoring_report_${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            toast.success('Report downloaded');
+          }
+        }
+      } catch {}
+      setSessionId(null);
+    })();
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -487,6 +551,47 @@ const ProctoringPipeline: React.FC<ProctoringPipelineProps> = ({ level, onComple
                       <Square className="w-4 h-4 mr-2" />
                       Stop
                     </Button>
+                  </div>
+                )}
+              </div>
+              <div className="grid md:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Phone camera snapshot URL</label>
+                  <input
+                    type="url"
+                    placeholder="http://<phone-ip>:8080/shot.jpg"
+                    value={ipCamUrl}
+                    onChange={(e) => setIpCamUrl(e.target.value)}
+                    className="w-full border rounded px-2 py-1"
+                  />
+                  <div className="text-xs text-muted-foreground mb-2">
+                    Common URLs: /shot.jpg, /photo.jpg, /shot, /video
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <input id="usePhoneCam" type="checkbox" checked={usePhoneCam} onChange={(e) => setUsePhoneCam(e.target.checked)} />
+                    <label htmlFor="usePhoneCam">Use phone as side camera</label>
+                  </div>
+                  <div className="text-xs text-muted-foreground mb-2">
+                    Phone must be on same WiFi network. Use IP Webcam app.
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const img = new Image();
+                      img.onload = () => toast.success('Phone camera connected!');
+                      img.onerror = () => toast.error('Cannot reach phone camera');
+                      img.src = `http://localhost:8000/proxy-snapshot?url=${encodeURIComponent(ipCamUrl)}&t=${Date.now()}`;
+                    }}
+                    className="w-full text-xs"
+                  >
+                    Test Connection
+                  </Button>
+                </div>
+                {usePhoneCam && ipCamUrl && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Phone snapshot preview</label>
+                    <img src={`http://localhost:8000/proxy-snapshot?url=${encodeURIComponent(ipCamUrl)}&t=${Date.now()}`} alt="Phone snapshot" className="w-full h-48 object-cover rounded border" />
                   </div>
                 )}
               </div>

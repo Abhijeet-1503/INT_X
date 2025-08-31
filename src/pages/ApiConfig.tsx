@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, Key, Shield, CheckCircle, AlertTriangle, Database } from "lucide-react";
+import { ArrowLeft, Key, Shield, CheckCircle, AlertTriangle, Database, Camera, Video } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import EnvironmentStatus from "@/components/EnvironmentStatus";
@@ -18,19 +18,36 @@ const ApiConfig = () => {
   const [testResults, setTestResults] = useState<{[key: string]: 'success' | 'error' | 'testing' | null}>({
     gemini: null,
     openai: null,
-    python: null
+    python: null,
+    camera: null
   });
+
+  // Camera Detection state
+  const [cameraEnabled, setCameraEnabled] = useState(false);
+  const [phoneCamUrl, setPhoneCamUrl] = useState("http://100.82.86.42:8080/shot.jpg");
+  const [pcCamEnabled, setPcCamEnabled] = useState(true);
+  const [detectionSensitivity, setDetectionSensitivity] = useState("medium");
 
   // Load saved API keys from localStorage or use defaults
   useEffect(() => {
     const savedGemini = localStorage.getItem('gemini-api-key') || "YOUR_GEMINI_API_KEY_HERE";
     const savedOpenai = localStorage.getItem('openai-api-key') || "YOUR_OPENAI_API_KEY_HERE";
     const savedPython = localStorage.getItem('python-backend-url') || "http://localhost:8000";
-    
+
+    // Load camera detection settings
+    const savedCameraEnabled = localStorage.getItem('camera-enabled') === 'true';
+    const savedPhoneCamUrl = localStorage.getItem('phone-cam-url') || "http://100.82.86.42:8080/shot.jpg";
+    const savedPcCamEnabled = localStorage.getItem('pc-cam-enabled') !== 'false'; // Default true
+    const savedDetectionSensitivity = localStorage.getItem('detection-sensitivity') || "medium";
+
     setGeminiKey(savedGemini);
     setOpenaiKey(savedOpenai);
     setPythonBackendUrl(savedPython);
-    
+    setCameraEnabled(savedCameraEnabled);
+    setPhoneCamUrl(savedPhoneCamUrl);
+    setPcCamEnabled(savedPcCamEnabled);
+    setDetectionSensitivity(savedDetectionSensitivity);
+
     // Auto-save the defaults if not already saved
     if (!localStorage.getItem('gemini-api-key')) {
       localStorage.setItem('gemini-api-key', savedGemini);
@@ -48,6 +65,14 @@ const ApiConfig = () => {
   const savePythonUrl = (url: string) => {
     localStorage.setItem('python-backend-url', url);
     toast.success('Python backend URL saved');
+  };
+
+  const saveCameraSettings = () => {
+    localStorage.setItem('camera-enabled', cameraEnabled.toString());
+    localStorage.setItem('phone-cam-url', phoneCamUrl);
+    localStorage.setItem('pc-cam-enabled', pcCamEnabled.toString());
+    localStorage.setItem('detection-sensitivity', detectionSensitivity);
+    toast.success('Camera detection settings saved');
   };
 
   const testGeminiConnection = async () => {
@@ -106,7 +131,7 @@ const ApiConfig = () => {
 
     try {
       const response = await fetch(`${pythonBackendUrl}/`);
-      
+
       if (response.ok) {
         setTestResults(prev => ({ ...prev, python: 'success' }));
         toast.success('Python backend connection successful');
@@ -116,6 +141,122 @@ const ApiConfig = () => {
     } catch (error) {
       setTestResults(prev => ({ ...prev, python: 'error' }));
       toast.error('Python backend connection failed');
+    }
+  };
+
+  const testCameraConnection = async () => {
+    setTestResults(prev => ({ ...prev, camera: 'testing' }));
+
+    try {
+      let pcCameraOk = false;
+      let phoneCameraOk = false;
+
+      // Test PC camera access first
+      if (pcCamEnabled) {
+        try {
+          await navigator.mediaDevices.getUserMedia({ video: true });
+          console.log('PC camera access granted');
+          pcCameraOk = true;
+        } catch (pcError: any) {
+          console.error('PC camera error:', pcError);
+          if (pcError.name === 'NotAllowedError') {
+            toast.error('PC Camera access denied. Please allow camera permissions.');
+          } else if (pcError.name === 'NotFoundError') {
+            toast.error('No PC camera found on this device.');
+          } else {
+            toast.error('PC Camera access failed.');
+          }
+        }
+      }
+
+      // Test phone camera connection via proxy
+      if (cameraEnabled && phoneCamUrl) {
+        try {
+          // First test if backend is running
+          const backendController = new AbortController();
+          const backendTimeoutId = setTimeout(() => backendController.abort(), 5000);
+
+          const backendResponse = await fetch(`${pythonBackendUrl}/health`, {
+            signal: backendController.signal
+          });
+
+          clearTimeout(backendTimeoutId);
+
+          if (!backendResponse.ok) {
+            throw new Error('Backend not accessible');
+          }
+
+          // Now test phone camera proxy
+          const phoneController = new AbortController();
+          const phoneTimeoutId = setTimeout(() => phoneController.abort(), 10000);
+
+          const proxyUrl = `${pythonBackendUrl}/proxy-snapshot?url=${encodeURIComponent(phoneCamUrl)}`;
+          const phoneResponse = await fetch(proxyUrl, {
+            signal: phoneController.signal
+          });
+
+          clearTimeout(phoneTimeoutId);
+
+          if (phoneResponse.ok) {
+            phoneCameraOk = true;
+            console.log('Phone camera proxy working');
+          } else {
+            throw new Error(`Phone camera responded with status: ${phoneResponse.status}`);
+          }
+        } catch (phoneError: any) {
+          console.error('Phone camera test error:', phoneError);
+
+          if (phoneError.name === 'AbortError') {
+            toast.error('Connection timed out. Check your phone URL and ensure both devices are on the same network.');
+          } else if (phoneError.message.includes('Backend not accessible')) {
+            toast.error('Python backend not running. Please start the backend server first.');
+          } else if (phoneError.message.includes('NetworkError') || phoneError.message.includes('Failed to fetch')) {
+            toast.error('Network error. Check your phone URL and ensure phone is on same network.');
+          } else if (phoneError.message.includes('status: 502')) {
+            toast.error('Phone camera not accessible. Check if IP Webcam app is running on your phone.');
+          } else if (phoneError.message.includes('status: 404')) {
+            toast.error('Phone camera URL not found. Check the URL format (e.g., /shot.jpg).');
+          } else {
+            toast.error(`Phone camera test failed: ${phoneError.message}`);
+          }
+        }
+      }
+
+      // Determine overall result
+      if ((pcCamEnabled && pcCameraOk) || (cameraEnabled && phoneCameraOk)) {
+        setTestResults(prev => ({ ...prev, camera: 'success' }));
+
+        if (pcCameraOk && phoneCameraOk) {
+          toast.success('Both PC and phone cameras working correctly!');
+        } else if (pcCameraOk) {
+          toast.success('PC camera working. Phone camera not accessible.');
+        } else if (phoneCameraOk) {
+          toast.success('Phone camera working. PC camera not accessible.');
+        }
+      } else if (pcCamEnabled || cameraEnabled) {
+        setTestResults(prev => ({ ...prev, camera: 'error' }));
+
+        if (!pcCamEnabled && !cameraEnabled) {
+          toast.error('Both PC and phone cameras are disabled.');
+        } else if (pcCamEnabled && !pcCameraOk) {
+          toast.error('PC camera test failed.');
+        } else if (cameraEnabled && !phoneCameraOk) {
+          toast.error('Phone camera test failed.');
+        }
+      } else {
+        // No cameras enabled
+        setTestResults(prev => ({ ...prev, camera: 'success' }));
+        toast.success('Camera detection disabled. No cameras to test.');
+      }
+
+    } catch (error: any) {
+      console.error('Camera test error:', error);
+      setTestResults(prev => ({ ...prev, camera: 'error' }));
+
+      // Generic fallback error
+      if (!error.message.includes('already handled')) {
+        toast.error('Camera detection test failed. Please check your configuration.');
+      }
     }
   };
 
@@ -154,10 +295,11 @@ const ApiConfig = () => {
 
         {/* Configuration Tabs */}
         <Tabs defaultValue="ai-apis" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="ai-apis">AI APIs</TabsTrigger>
             <TabsTrigger value="database">Database</TabsTrigger>
             <TabsTrigger value="backend">Backend</TabsTrigger>
+            <TabsTrigger value="camera">Camera Detection</TabsTrigger>
           </TabsList>
 
           {/* AI APIs Tab */}
@@ -482,6 +624,183 @@ ON CONFLICT (email) DO NOTHING;
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Camera Detection Tab */}
+          <TabsContent value="camera" className="space-y-6">
+            {/* Camera Detection System */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Camera className="w-5 h-5 text-purple-500" />
+                    Camera Detection System
+                  </span>
+                  {getStatusIcon(testResults.camera)}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Enable Camera Detection */}
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="camera-enabled"
+                    checked={cameraEnabled}
+                    onChange={(e) => setCameraEnabled(e.target.checked)}
+                    className="rounded"
+                  />
+                  <Label htmlFor="camera-enabled">Enable Camera Detection</Label>
+                </div>
+
+                {/* PC Camera Settings */}
+                <div className="space-y-2">
+                  <Label>PC Camera Settings</Label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="pc-cam-enabled"
+                      checked={pcCamEnabled}
+                      onChange={(e) => setPcCamEnabled(e.target.checked)}
+                      className="rounded"
+                    />
+                    <Label htmlFor="pc-cam-enabled">Enable PC Webcam</Label>
+                  </div>
+                </div>
+
+                {/* Phone Camera Settings */}
+                <div className="space-y-2">
+                  <Label htmlFor="phone-cam-url">Phone Camera URL (IP Webcam)</Label>
+                  <Input
+                    id="phone-cam-url"
+                    type="url"
+                    placeholder="http://100.82.86.42:8080/shot.jpg"
+                    value={phoneCamUrl}
+                    onChange={(e) => setPhoneCamUrl(e.target.value)}
+                    disabled={!cameraEnabled}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Common formats: /shot.jpg, /photo.jpg, /shot, /video
+                  </p>
+                </div>
+
+                {/* Detection Sensitivity */}
+                <div className="space-y-2">
+                  <Label htmlFor="detection-sensitivity">Detection Sensitivity</Label>
+                  <select
+                    id="detection-sensitivity"
+                    value={detectionSensitivity}
+                    onChange={(e) => setDetectionSensitivity(e.target.value)}
+                    className="w-full border rounded px-3 py-2"
+                    disabled={!cameraEnabled}
+                  >
+                    <option value="low">Low (Less sensitive, fewer false positives)</option>
+                    <option value="medium">Medium (Balanced detection)</option>
+                    <option value="high">High (More sensitive, may detect more violations)</option>
+                    <option value="critical">Critical (Maximum sensitivity)</option>
+                  </select>
+                </div>
+
+                {/* Control Buttons */}
+                <div className="flex gap-2">
+                  <Button
+                    onClick={saveCameraSettings}
+                    disabled={!cameraEnabled}
+                  >
+                    Save Settings
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={testCameraConnection}
+                    disabled={testResults.camera === 'testing'}
+                  >
+                    Test Camera Connection
+                  </Button>
+                </div>
+
+                {/* Camera Detection Features */}
+                <div className="mt-4 p-4 bg-muted rounded-lg">
+                  <h4 className="font-semibold mb-2">Camera Detection Features:</h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-3 h-3 text-green-500" />
+                      Face Detection
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-3 h-3 text-green-500" />
+                      Gaze Tracking
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-3 h-3 text-green-500" />
+                      Head Movement
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-3 h-3 text-green-500" />
+                      Hand Gesture Detection
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-3 h-3 text-green-500" />
+                      Suspicious Behavior
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-3 h-3 text-green-500" />
+                      Environment Scanning
+                    </div>
+                  </div>
+                </div>
+
+                {/* Setup Instructions */}
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    <div className="space-y-2">
+                      <p><strong>Phone Camera Setup:</strong></p>
+                      <ol className="text-sm space-y-1 list-decimal list-inside">
+                        <li>Install "IP Webcam" app on your phone</li>
+                        <li>Start the server in the app</li>
+                        <li>Note the IP address shown (e.g., 100.82.86.42:8080)</li>
+                        <li>Use URL: <code>http://[IP]:8080/shot.jpg</code></li>
+                        <li>Phone and PC must be on same WiFi network</li>
+                      </ol>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              </CardContent>
+            </Card>
+
+            {/* Camera Detection Status */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Video className="w-5 h-5" />
+                  Detection Status
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center">
+                    <div className={`text-2xl ${pcCamEnabled ? 'text-green-500' : 'text-gray-400'}`}>
+                      {pcCamEnabled ? '✓' : '✗'}
+                    </div>
+                    <div className="text-sm text-muted-foreground">PC Camera</div>
+                  </div>
+                  <div className="text-center">
+                    <div className={`text-2xl ${cameraEnabled ? 'text-green-500' : 'text-gray-400'}`}>
+                      {cameraEnabled ? '✓' : '✗'}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Phone Camera</div>
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <div className="text-sm">
+                    <strong>Detection Sensitivity:</strong> {detectionSensitivity.charAt(0).toUpperCase() + detectionSensitivity.slice(1)}
+                  </div>
+                  <div className="text-sm mt-1">
+                    <strong>Phone URL:</strong> {phoneCamUrl || 'Not configured'}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
 
         {/* Quick Actions */}
@@ -498,7 +817,11 @@ ON CONFLICT (email) DO NOTHING;
                   setGeminiKey('');
                   setOpenaiKey('');
                   setPythonBackendUrl('http://localhost:8000');
-                  setTestResults({ gemini: null, openai: null, python: null });
+                  setTestResults({ gemini: null, openai: null, python: null, camera: null });
+                  setCameraEnabled(false);
+                  setPhoneCamUrl("http://100.82.86.42:8080/shot.jpg");
+                  setPcCamEnabled(true);
+                  setDetectionSensitivity("medium");
                   toast.success('All configurations cleared');
                 }}
               >

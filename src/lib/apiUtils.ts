@@ -11,10 +11,10 @@ export class APIUtils {
   private static readonly OPENAI_KEY = 'openai-api-key';
   private static readonly PYTHON_URL = 'python-backend-url';
 
-  // Default values - Replace with your actual API keys
+  // Default values - Placeholder API keys (replace with your own)
   private static readonly DEFAULTS = {
     geminiKey: "YOUR_GEMINI_API_KEY_HERE",
-    openaiKey: "YOUR_OPENAI_API_KEY_HERE",
+    openaiKey: "YOUR_OPENAI_API_KEY_HERE", 
     pythonBackendUrl: "http://localhost:8000"
   };
 
@@ -73,6 +73,13 @@ export class APIUtils {
   static async testGeminiConnection(): Promise<boolean> {
     try {
       const key = this.getGeminiKey();
+      
+      // Skip test for demo keys
+      if (key.includes('Demo') || key.includes('YOUR_')) {
+        console.log('Using demo Gemini key - skipping connection test');
+        return false;
+      }
+      
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
       return response.ok;
     } catch (error) {
@@ -84,6 +91,13 @@ export class APIUtils {
   static async testOpenAIConnection(): Promise<boolean> {
     try {
       const key = this.getOpenAIKey();
+      
+      // Skip test for demo keys
+      if (key.includes('demo') || key.includes('YOUR_')) {
+        console.log('Using demo OpenAI key - skipping connection test');
+        return false;
+      }
+      
       const response = await fetch('https://api.openai.com/v1/models', {
         headers: {
           'Authorization': `Bearer ${key}`

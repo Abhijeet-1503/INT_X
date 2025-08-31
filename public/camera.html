@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Camera</title>
+    <style>
+        body { 
+            margin: 0; 
+            padding: 20px; 
+            background: #000; 
+            color: #fff; 
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        .container { max-width: 400px; margin: 0 auto; }
+        video { 
+            width: 100%; 
+            max-width: 400px; 
+            border-radius: 10px; 
+            background: #333;
+        }
+        button {
+            padding: 15px 30px;
+            margin: 10px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .start { background: #4CAF50; color: white; }
+        .stop { background: #f44336; color: white; }
+        .status { 
+            margin: 20px 0; 
+            padding: 10px; 
+            background: #333; 
+            border-radius: 5px;
+        }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 SmartProctor-X Mobile</h1>
+        
+        <div class="status">
+            <div id="status">Ready to start camera</div>
+        </div>
+        
+        <video id="video" autoplay playsinline muted></video>
+        
+        <div>
+            <button id="startBtn" class="start">📷 Start Camera</button>
+            <button id="stopBtn" class="stop hidden">⏹️ Stop Camera</button>
+        </div>
+        
+        <div class="status">
+            <small>Allow camera access when prompted</small>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const status = document.getElementById('status');
+        let stream = null;
+        
+        startBtn.onclick = function() {
+            status.textContent = 'Requesting camera access...';
+            
+            navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+                .then(function(mediaStream) {
+                    stream = mediaStream;
+                    video.srcObject = stream;
+                    
+                    startBtn.classList.add('hidden');
+                    stopBtn.classList.remove('hidden');
+                    status.textContent = '🔴 Recording - Connected to Level 4';
+                })
+                .catch(function(error) {
+                    status.textContent = 'Camera access denied. Please allow camera.';
+                    console.error('Error:', error);
+                });
+        };
+        
+        stopBtn.onclick = function() {
+            if (stream) {
+                stream.getTracks().forEach(function(track) {
+                    track.stop();
+                });
+                video.srcObject = null;
+                stream = null;
+            }
+            
+            startBtn.classList.remove('hidden');
+            stopBtn.classList.add('hidden');
+            status.textContent = 'Camera stopped';
+        };
+    </script>
+</body>
+</html>

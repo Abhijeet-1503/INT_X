@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartProctor-X Mobile Camera</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #111827;
+            color: white;
+            min-height: 100vh;
+        }
+        
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 16px;
+            background: #000;
+            font-size: 14px;
+        }
+        
+        .container {
+            padding: 16px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        .session-info {
+            background: #2563eb;
+            padding: 16px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+        
+        .video-container {
+            position: relative;
+            aspect-ratio: 16/9;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+        
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .video-placeholder {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            color: #6b7280;
+        }
+        
+        .recording-badge {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            background: #ef4444;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+        
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .btn-primary {
+            background: #16a34a;
+            color: white;
+        }
+        
+        .btn-danger {
+            background: #dc2626;
+            color: white;
+        }
+        
+        .status {
+            background: #374151;
+            padding: 16px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+        
+        .instructions {
+            background: #374151;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .instructions h3 {
+            margin-bottom: 8px;
+        }
+        
+        .instructions ul {
+            list-style: none;
+            color: #d1d5db;
+        }
+        
+        .instructions li {
+            margin-bottom: 4px;
+        }
+        
+        .app-info {
+            text-align: center;
+            color: #9ca3af;
+            font-size: 12px;
+        }
+        
+        .badge {
+            background: #16a34a;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Status Bar -->
+    <div class="status-bar">
+        <div>
+            <span class="badge">📶 Online</span>
+        </div>
+        <div><strong>SmartProctor-X Mobile</strong></div>
+        <div>🔋 85%</div>
+    </div>
+
+    <div class="container">
+        <!-- Session Info -->
+        <div id="sessionInfo" class="session-info hidden">
+            <div style="margin-bottom: 8px;">
+                <strong>✅ Connected to Level 4</strong>
+            </div>
+            <div id="sessionId">Session: Loading...</div>
+        </div>
+
+        <!-- Title -->
+        <div style="text-align: center; margin-bottom: 16px;">
+            <h2>Mobile Camera</h2>
+            <p style="color: #d1d5db; font-size: 14px;">Your camera will stream to SmartProctor-X Level 4</p>
+        </div>
+
+        <!-- Video Container -->
+        <div class="video-container">
+            <video id="video" autoplay playsinline muted></video>
+            <div id="videoPlaceholder" class="video-placeholder">
+                <div style="font-size: 48px; margin-bottom: 8px;">📷</div>
+                <p>Camera not active</p>
+            </div>
+            <div id="recordingBadge" class="recording-badge pulse hidden">● RECORDING</div>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <button id="startBtn" class="btn-primary">📷 Start Camera</button>
+            <button id="stopBtn" class="btn-danger hidden">Stop Camera</button>
+        </div>
+
+        <!-- Status -->
+        <div id="status" class="status hidden">
+            <div style="margin-bottom: 8px;">
+                <span style="color: #16a34a;">🟢</span> Streaming to Level 4
+            </div>
+            <div style="color: #9ca3af; font-size: 12px;">
+                AI analysis is processing your video feed
+            </div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="instructions">
+            <h3>Instructions:</h3>
+            <ul>
+                <li>1. Tap "Start Camera" to begin</li>
+                <li>2. Allow camera permissions</li>
+                <li>3. Keep your phone steady</li>
+                <li>4. Your video appears in Level 4</li>
+            </ul>
+        </div>
+
+        <!-- App Info -->
+        <div class="app-info">
+            <div style="margin-bottom: 8px;">
+                📱 <strong>SmartProctor-X Mobile Camera</strong>
+            </div>
+            <div>Professional AI proctoring solution</div>
+        </div>
+    </div>
+
+    <script>
+        // Get session from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const sessionId = urlParams.get('session');
+        
+        if (sessionId) {
+            document.getElementById('sessionInfo').classList.remove('hidden');
+            document.getElementById('sessionId').textContent = 'Session: ' + sessionId.slice(-8);
+        }
+        
+        const video = document.getElementById('video');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const videoPlaceholder = document.getElementById('videoPlaceholder');
+        const recordingBadge = document.getElementById('recordingBadge');
+        const status = document.getElementById('status');
+        
+        let stream = null;
+        
+        startBtn.addEventListener('click', async () => {
+            try {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    alert('Camera not supported on this device');
+                    return;
+                }
+                
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' },
+                    audio: true
+                });
+                
+                video.srcObject = stream;
+                
+                // Update UI
+                startBtn.classList.add('hidden');
+                stopBtn.classList.remove('hidden');
+                videoPlaceholder.classList.add('hidden');
+                recordingBadge.classList.remove('hidden');
+                status.classList.remove('hidden');
+                
+            } catch (error) {
+                console.error('Camera error:', error);
+                alert('Please allow camera access');
+            }
+        });
+        
+        stopBtn.addEventListener('click', () => {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+                stream = null;
+                
+                // Update UI
+                startBtn.classList.remove('hidden');
+                stopBtn.classList.add('hidden');
+                videoPlaceholder.classList.remove('hidden');
+                recordingBadge.classList.add('hidden');
+                status.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>

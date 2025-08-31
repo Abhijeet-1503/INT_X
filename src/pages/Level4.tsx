@@ -1,4 +1,4 @@
-import Level4Component from "@/components/levels/Level4ComponentSimple";
+import Level4Component from "@/components/levels/Level4ComponentWireless";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
@@ -34,7 +34,7 @@ const Level4 = () => {
             </Button>
             <div>
               <h1 className="text-2xl font-bold">Level 4 Proctoring</h1>
-              <p className="text-muted-foreground">Audio-visual analysis and facial recognition</p>
+              <p className="text-muted-foreground">Wireless AI analysis with WiFi cameras, mobile devices, and network streaming</p>
             </div>
           </div>
           <Level4Component onComplete={handleSessionComplete} />

@@ -1,0 +1,31 @@
+{
+  "name": "SmartProctor-X Mobile Camera",
+  "short_name": "ProctorCam",
+  "description": "Mobile camera for SmartProctor-X Level 4 proctoring",
+  "start_url": "/#/mobile-app",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "theme_color": "#3b82f6",
+  "background_color": "#1f2937",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/placeholder.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    }
+  ],
+  "permissions": [
+    "camera",
+    "microphone"
+  ],
+  "categories": [
+    "education",
+    "utilities"
+  ]
+}

@@ -62,13 +62,13 @@ class PythonIntegrationService {
   async startSession(studentId: string, level: number): Promise<StudentSession> {
     try {
       // In production, this would call your Python API
+      const fd = new FormData();
+      fd.append('student_id', studentId);
+      fd.append('proctoring_level', String(level));
+      fd.append('timestamp', new Date().toISOString());
       const response = await this.callPythonAPI('/api/session/start', {
         method: 'POST',
-        body: JSON.stringify({
-          student_id: studentId,
-          proctoring_level: level,
-          timestamp: new Date().toISOString()
-        })
+        body: fd as any
       });
 
       if (response.success) {
@@ -153,7 +153,7 @@ class PythonIntegrationService {
 
       const response = await this.callPythonAPI('/api/analyze/audio', {
         method: 'POST',
-        body: formData
+        body: formData as any
       });
 
       return response.data;
@@ -187,12 +187,12 @@ class PythonIntegrationService {
   // End proctoring session
   async endSession(sessionId: string): Promise<boolean> {
     try {
+      const fd = new FormData();
+      fd.append('session_id', sessionId);
+      fd.append('end_time', new Date().toISOString());
       const response = await this.callPythonAPI('/api/session/end', {
         method: 'POST',
-        body: JSON.stringify({
-          session_id: sessionId,
-          end_time: new Date().toISOString()
-        })
+        body: fd as any
       });
 
       if (response.success) {
@@ -232,13 +232,19 @@ class PythonIntegrationService {
   // Call Python API with error handling
   private async callPythonAPI(endpoint: string, options: RequestInit = {}): Promise<PythonApiResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
-        headers: {
+      const opts: RequestInit = { ...options };
+      // Do not force JSON headers when sending FormData
+      if (opts.headers && (opts.body instanceof FormData)) {
+        const { headers, ...rest } = opts as any;
+        opts.headers = headers && Object.keys(headers).length ? headers : undefined;
+      } else {
+        opts.headers = {
           'Content-Type': 'application/json',
-          ...options.headers
-        },
-        ...options
-      });
+          ...(opts.headers || {})
+        } as any;
+      }
+
+      const response = await fetch(`${this.baseUrl}${endpoint}`, opts);
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);

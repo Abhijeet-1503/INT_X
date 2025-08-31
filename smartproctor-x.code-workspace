@@ -1,0 +1,148 @@
+{
+  "folders": [
+    {
+      "name": "Frontend (Main)",
+      "path": "."
+    },
+    {
+      "name": "Vision Nexus (Sub-project)",
+      "path": "./proctor-vision-nexus"
+    },
+    {
+      "name": "Python Backend",
+      "path": "../diya.py"
+    }
+  ],
+  "settings": {
+    "typescript.preferences.importModuleSpecifier": "relative",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "explicit"
+    },
+    "python.defaultInterpreterPath": "../diya.py/venv/Scripts/python.exe",
+    "python.analysis.extraPaths": ["../diya.py"],
+    "files.associations": {
+      "*.py": "python"
+    },
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/dist": true,
+      "**/__pycache__": true,
+      "**/venv": true,
+      "**/env": true
+    }
+  },
+  "extensions": {
+    "recommendations": [
+      "ms-python.python",
+      "ms-python.black-formatter",
+      "bradlc.vscode-tailwindcss",
+      "esbenp.prettier-vscode",
+      "ms-vscode.vscode-typescript-next"
+    ]
+  },
+  "launch": {
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Start Frontend (Vite)",
+        "type": "node",
+        "request": "launch",
+        "program": "${workspaceFolder}/node_modules/.bin/vite",
+        "args": ["dev"],
+        "cwd": "${workspaceFolder}",
+        "console": "integratedTerminal"
+      },
+      {
+        "name": "Start Python Backend",
+        "type": "python",
+        "request": "launch",
+        "program": "${workspaceFolder}/../diya.py/api_server.py",
+        "cwd": "${workspaceFolder}/../diya.py",
+        "console": "integratedTerminal",
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}/../diya.py"
+        }
+      }
+    ],
+    "compounds": [
+      {
+        "name": "Start Full Stack",
+        "configurations": ["Start Frontend (Vite)", "Start Python Backend"],
+        "presentation": {
+          "hidden": false,
+          "group": "SmartProctor-X",
+          "order": 1
+        }
+      }
+    ]
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Install Frontend Dependencies",
+        "type": "shell",
+        "command": "npm install",
+        "group": "build",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "panel": "new"
+        }
+      },
+      {
+        "label": "Install Python Dependencies",
+        "type": "shell",
+        "command": "pip install -r requirements.txt",
+        "options": {
+          "cwd": "${workspaceFolder}/../diya.py"
+        },
+        "group": "build",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "panel": "new"
+        }
+      },
+      {
+        "label": "Start Development Servers",
+        "dependsOrder": "parallel",
+        "dependsOn": ["Start Frontend Dev", "Start Python Backend"],
+        "group": {
+          "kind": "build",
+          "isDefault": true
+        }
+      },
+      {
+        "label": "Start Frontend Dev",
+        "type": "shell",
+        "command": "npm run dev",
+        "group": "build",
+        "isBackground": true,
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "panel": "new",
+          "group": "servers"
+        }
+      },
+      {
+        "label": "Start Python Backend",
+        "type": "shell",
+        "command": "python api_server.py",
+        "options": {
+          "cwd": "${workspaceFolder}/../diya.py"
+        },
+        "group": "build",
+        "isBackground": true,
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "panel": "new",
+          "group": "servers"
+        }
+      }
+    ]
+  }
+}
