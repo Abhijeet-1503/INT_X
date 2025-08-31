@@ -182,6 +182,7 @@ PYTHON_BACKEND_URL=https://your-backend.com
 
 👉 I placed your screenshots as:
 
-* `./images/architecture.png`
-* `./images/dashboard.png`
-* `./images/app-preview.png`
+* `./images/Screenshot 2025-08-31 153015.png`
+* `./images/ Screenshot 2025-08-31 153249.png`
+* `./imagesScreenshot 2025-08-31 153533.png`
+
