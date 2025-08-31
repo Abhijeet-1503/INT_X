@@ -1,8 +1,8 @@
 # 🧠 SmartProctor-X - Complete Setup Guide
 
-![Pensar Review](./images/Screenshot 2025-08-31 153533.png)
-![Wireless AI Dashboard](./images/Screenshot 2025-08-31 153249.png)
-![System Architecture](./images/Screenshot 2025-08-31 153015.png)
+![Pensar Review](./images/PENSAR.png)
+![Wireless AI Dashboard](./images/DASHBOARD.png)
+![System Architecture](./images/ARCHITECTURE.png)
 
 ---
 
@@ -173,6 +173,7 @@ PYTHON_BACKEND_URL=https://your-backend.com
 2. Use demo credentials to test
 3. Verify API keys are set correctly
 4. Ensure Python backend is running
+
 
 
 
