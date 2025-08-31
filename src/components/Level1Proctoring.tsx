@@ -31,13 +31,40 @@ const Level1Proctoring = () => {
   const animationFrameRef = useRef<number>();
   const analysisIntervalRef = useRef<NodeJS.Timeout>();
 
+  // Helper to fetch validated examId and studentId from server
+  const fetchValidatedSessionParams = async () => {
+    // This endpoint should return the validated studentId and examId for the current user/session
+    // For security, do not trust client-side values
+    try {
+      const response = await fetch('/api/session/validate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: user?.id }),
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Session validation failed');
+      const data = await response.json();
+      return {
+        studentId: data.studentId,
+        examId: data.examId,
+      };
+    } catch (error) {
+      throw new Error('Unable to validate session parameters');
+    }
+  };
+
   const initializeSession = useCallback(async () => {
     if (!user) return;
 
     try {
+      // Fetch validated session parameters from server
+      const { studentId, examId } = await fetchValidatedSessionParams();
+
       const sessionData = {
-        studentId: user.id,
-        examId: 'demo-exam-001', // In a real app, this would come from props or URL
+        studentId, // validated from server
+        examId,    // validated from server
         level: 1 as const,
         status: 'active' as const,
         suspicionLevel: 0,
