@@ -87,6 +87,7 @@ const Level4ComponentSimple: React.FC<Level4ComponentProps> = ({ onComplete }) =
     }
   };
 
+  // Patch: Do not send client-side metrics, only notify completion
   const stopSession = () => {
     setIsActive(false);
     setAiProcessingActive(false);
@@ -97,18 +98,9 @@ const Level4ComponentSimple: React.FC<Level4ComponentProps> = ({ onComplete }) =
       frontVideoRef.current.srcObject = null;
     }
 
-    const results = {
-      level: 4,
-      totalTime: sessionTime,
-      violations,
-      suspicionScore,
-      faceConfidence,
-      behaviorScore,
-      aiProcessingActive: true
-    };
-
+    // Do not send metrics, only notify completion
     if (onComplete) {
-      onComplete(results);
+      onComplete({ level: 4, completed: true });
     }
 
     toast.success("AI-enhanced session completed!");
