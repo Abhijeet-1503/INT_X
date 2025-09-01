@@ -47,6 +47,34 @@ interface AlertData {
   timestamp: Date;
 }
 
+// Helper: Validate that a URL is safe for proxying (prevents SSRF)
+function isSafeSnapshotUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    // Only allow http/https
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+    // Only allow IP addresses in private ranges (e.g., 192.168.x.x, 10.x.x.x, 172.16-31.x.x, 100.64-127.x.x, localhost)
+    // Or optionally, restrict to a specific allowlist of hostnames/IPs
+    // For this patch, allow only private IPv4 addresses and localhost
+    const hostname = parsed.hostname;
+    // localhost and 127.0.0.1
+    if (hostname === 'localhost' || hostname === '127.0.0.1') return true;
+    // IPv4 private ranges
+    const privateRanges = [
+      /^10\./,
+      /^192\.168\./,
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
+      /^100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\./
+    ];
+    if (privateRanges.some((re) => re.test(hostname))) return true;
+    // Optionally, allow specific public hostnames (e.g., for demo/testing)
+    // return false for all others
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 const ProctoringPipeline: React.FC<ProctoringPipelineProps> = ({ level, onComplete }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -222,20 +250,25 @@ const ProctoringPipeline: React.FC<ProctoringPipelineProps> = ({ level, onComple
 
       // Optionally analyze phone snapshot in parallel (live mode only)
       if (processingMode === 'live' && isActive && usePhoneCam && ipCamUrl) {
-        try {
-          const snapshotResp = await fetch(`http://localhost:8000/proxy-snapshot?url=${encodeURIComponent(ipCamUrl)}`, { cache: 'no-store' });
-          if (snapshotResp.ok) {
-            const snapBlob = await snapshotResp.blob();
-            const fd = new FormData();
-            fd.append('file', snapBlob, 'phone.jpg');
-            fd.append('session_id', sessionId || `level${level}_${Date.now()}`);
-            await fetch('http://localhost:8000/analyze-frame', {
-              method: 'POST',
-              body: fd,
-            });
+        // SSRF FIX: Validate ipCamUrl before using it
+        if (!isSafeSnapshotUrl(ipCamUrl)) {
+          addAlert('audio_anomaly', 'medium', 'Invalid or unsafe phone camera URL blocked');
+        } else {
+          try {
+            const snapshotResp = await fetch(`http://localhost:8000/proxy-snapshot?url=${encodeURIComponent(ipCamUrl)}`, { cache: 'no-store' });
+            if (snapshotResp.ok) {
+              const snapBlob = await snapshotResp.blob();
+              const fd = new FormData();
+              fd.append('file', snapBlob, 'phone.jpg');
+              fd.append('session_id', sessionId || `level${level}_${Date.now()}`);
+              await fetch('http://localhost:8000/analyze-frame', {
+                method: 'POST',
+                body: fd,
+              });
+            }
+          } catch (e) {
+            // ignore phone snapshot errors silently
           }
-        } catch (e) {
-          // ignore phone snapshot errors silently
         }
       }
 
@@ -578,6 +611,11 @@ const ProctoringPipeline: React.FC<ProctoringPipelineProps> = ({ level, onComple
                     size="sm"
                     variant="outline"
                     onClick={() => {
+                      // SSRF FIX: Validate ipCamUrl before testing connection
+                      if (!isSafeSnapshotUrl(ipCamUrl)) {
+                        toast.error('Invalid or unsafe phone camera URL');
+                        return;
+                      }
                       const img = new Image();
                       img.onload = () => toast.success('Phone camera connected!');
                       img.onerror = () => toast.error('Cannot reach phone camera');
@@ -588,10 +626,16 @@ const ProctoringPipeline: React.FC<ProctoringPipelineProps> = ({ level, onComple
                     Test Connection
                   </Button>
                 </div>
-                {usePhoneCam && ipCamUrl && (
+                {usePhoneCam && ipCamUrl && isSafeSnapshotUrl(ipCamUrl) && (
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Phone snapshot preview</label>
                     <img src={`http://localhost:8000/proxy-snapshot?url=${encodeURIComponent(ipCamUrl)}&t=${Date.now()}`} alt="Phone snapshot" className="w-full h-48 object-cover rounded border" />
+                  </div>
+                )}
+                {usePhoneCam && ipCamUrl && !isSafeSnapshotUrl(ipCamUrl) && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Phone snapshot preview</label>
+                    <div className="w-full h-48 flex items-center justify-center border rounded bg-gray-100 text-xs text-red-500">Unsafe or invalid URL</div>
                   </div>
                 )}
               </div>
