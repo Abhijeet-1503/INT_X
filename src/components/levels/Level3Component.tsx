@@ -42,6 +42,25 @@ interface AlertData {
   camera: 'front' | 'side';
 }
 
+// Helper function to generate a cryptographically secure random session ID
+function generateSecureSessionId(length = 32) {
+  const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  if (window.crypto && window.crypto.getRandomValues) {
+    const values = new Uint32Array(length);
+    window.crypto.getRandomValues(values);
+    for (let i = 0; i < length; i++) {
+      result += charset[values[i] % charset.length];
+    }
+  } else {
+    // Fallback to Math.random() if crypto is not available (very rare in modern browsers)
+    for (let i = 0; i < length; i++) {
+      result += charset[Math.floor(Math.random() * charset.length)];
+    }
+  }
+  return 'session_' + result;
+}
+
 const Level3Component: React.FC<Level3ComponentProps> = ({ onComplete }) => {
   const frontVideoRef = useRef<HTMLVideoElement>(null);
   const sideVideoRef = useRef<HTMLVideoElement>(null);
@@ -64,15 +83,15 @@ const Level3Component: React.FC<Level3ComponentProps> = ({ onComplete }) => {
   const [environmentScan, setEnvironmentScan] = useState({ suspicious: false, people: 0, devices: 0 });
   const [violations, setViolations] = useState(0);
   const [suspicionScore, setSuspicionScore] = useState(0);
-  const [alerts, setAlerts] = useState<AlertData[]>([]);
-  const [activeView, setActiveView] = useState("dual");
 
-  // Generate QR code URL for mobile connection with cryptographically secure auth token
+  // Generate QR code URL for mobile connection
   const generateMobileURL = () => {
     const baseUrl = window.location.origin;
-    const sessionId = `session_${Date.now()}`;
-    // Use crypto.getRandomValues for a secure token
-    const array = new Uint32Array(4);
+    const sessionId = generateSecureSessionId();
+    const mobileUrl = `${baseUrl}/mobile-camera/${sessionId}`;
+    setMobileConnectionUrl(mobileUrl);
+    setShowQRCode(true);
+    toast.info("QR code generated for mobile camera connection");
     window.crypto.getRandomValues(array);
     const authToken = Array.from(array, dec => dec.toString(36)).join('');
     setSideCameraAuthToken(authToken);
