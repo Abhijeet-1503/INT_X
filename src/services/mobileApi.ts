@@ -29,7 +29,12 @@ class MobileApiService {
   private pingInterval: NodeJS.Timeout | null = null;
 
   // Connect to Level 4 session via WebSocket
-  async connectToSession(sessionId: string, deviceId: string): Promise<boolean> {
+  async connectToSession(sessionId: string, deviceId: string, authToken: string): Promise<boolean> {
+    // Enforce presence of a valid authentication token (JWT or similar)
+    if (!authToken || typeof authToken !== 'string') {
+      console.error('Authentication token is missing or invalid.');
+      return false;
+    }
     try {
       const wsUrl = this.getWebSocketUrl();
       console.log('Connecting to WebSocket:', wsUrl);
@@ -46,11 +51,12 @@ class MobileApiService {
           console.log('WebSocket connected');
           this.reconnectAttempts = 0;
           
-          // Send connection handshake
+          // Send connection handshake with authentication token
           this.sendMessage({
             type: 'mobile_connect',
             sessionId,
             deviceId,
+            authToken,
             timestamp: Date.now()
           });
           
@@ -71,7 +77,17 @@ class MobileApiService {
         };
 
         this.ws.onmessage = (event) => {
-          this.handleMessage(JSON.parse(event.data));
+          const message = JSON.parse(event.data);
+          if (message.type === 'connection_ack') {
+            if (!message.authenticated) {
+              // Server rejected authentication
+              console.error('WebSocket authentication failed. Closing connection.');
+              this.disconnect();
+              reject(new Error('WebSocket authentication failed.'));
+              return;
+            }
+          }
+          this.handleMessage(message);
         };
       });
     } catch (error) {
