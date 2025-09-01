@@ -25,31 +25,90 @@ export interface FlaggedEvent {
   expiresAt: Date;
 }
 
+// Minimal AES-GCM encryption/decryption using Web Crypto API
+class CryptoStorage {
+  private static readonly STORAGE_KEY = 'spx_crypto_key';
+
+  // Generate or retrieve a persistent key from sessionStorage
+  static async getKey(): Promise<CryptoKey> {
+    let keyData = sessionStorage.getItem(CryptoStorage.STORAGE_KEY);
+    if (!keyData) {
+      const rawKey = crypto.getRandomValues(new Uint8Array(32));
+      keyData = Array.from(rawKey).join(',');
+      sessionStorage.setItem(CryptoStorage.STORAGE_KEY, keyData);
+    }
+    const rawKeyArr = new Uint8Array(keyData.split(',').map(Number));
+    return crypto.subtle.importKey(
+      'raw',
+      rawKeyArr,
+      { name: 'AES-GCM' },
+      false,
+      ['encrypt', 'decrypt']
+    );
+  }
+
+  static async encrypt(plain: string): Promise<string> {
+    const key = await CryptoStorage.getKey();
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encoded = new TextEncoder().encode(plain);
+    const ciphertext = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      encoded
+    );
+    // Store iv + ciphertext as base64
+    const combined = new Uint8Array(iv.length + ciphertext.byteLength);
+    combined.set(iv, 0);
+    combined.set(new Uint8Array(ciphertext), iv.length);
+    return btoa(String.fromCharCode(...combined));
+  }
+
+  static async decrypt(data: string): Promise<string> {
+    const key = await CryptoStorage.getKey();
+    const bytes = Uint8Array.from(atob(data), c => c.charCodeAt(0));
+    const iv = bytes.slice(0, 12);
+    const ciphertext = bytes.slice(12);
+    const plainBuffer = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      ciphertext
+    );
+    return new TextDecoder().decode(plainBuffer);
+  }
+}
+
 export class RecordingManager {
   private static readonly STORAGE_KEY = 'smartproctor_recordings';
   private static readonly EVENTS_KEY = 'smartproctor_events';
   private static readonly RETENTION_HOURS = 24;
 
   // Recording management
-  static saveRecording(recording: Omit<RecordingData, 'expiresAt' | 'status'>): RecordingData {
+  static async saveRecording(recording: Omit<RecordingData, 'expiresAt' | 'status'>): Promise<RecordingData> {
     const fullRecording: RecordingData = {
       ...recording,
       expiresAt: new Date(Date.now() + this.RETENTION_HOURS * 60 * 60 * 1000),
       status: 'active'
     };
 
-    const recordings = this.getRecordings();
+    const recordings = await this.getRecordings();
     recordings.push(fullRecording);
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(recordings));
+    const encrypted = await CryptoStorage.encrypt(JSON.stringify(recordings));
+    localStorage.setItem(this.STORAGE_KEY, encrypted);
 
     return fullRecording;
   }
 
-  static getRecordings(): RecordingData[] {
+  static async getRecordings(): Promise<RecordingData[]> {
     const data = localStorage.getItem(this.STORAGE_KEY);
     if (!data) return [];
-
-    const recordings = JSON.parse(data);
+    let decrypted: string;
+    try {
+      decrypted = await CryptoStorage.decrypt(data);
+    } catch (e) {
+      // If decryption fails, treat as no data
+      return [];
+    }
+    const recordings = JSON.parse(decrypted);
     // Parse dates back to Date objects
     return recordings.map((r: any) => ({
       ...r,
@@ -59,12 +118,13 @@ export class RecordingManager {
     }));
   }
 
-  static getActiveRecordings(): RecordingData[] {
-    return this.getRecordings().filter(r => r.status === 'active' && r.expiresAt > new Date());
+  static async getActiveRecordings(): Promise<RecordingData[]> {
+    const recs = await this.getRecordings();
+    return recs.filter(r => r.status === 'active' && r.expiresAt > new Date());
   }
 
-  static cleanupExpiredRecordings(): { deleted: number; expired: number } {
-    const recordings = this.getRecordings();
+  static async cleanupExpiredRecordings(): Promise<{ deleted: number; expired: number }> {
+    const recordings = await this.getRecordings();
     const now = new Date();
 
     let deleted = 0;
@@ -91,30 +151,38 @@ export class RecordingManager {
       return true;
     });
 
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(finalRecordings));
+    const encrypted = await CryptoStorage.encrypt(JSON.stringify(finalRecordings));
+    localStorage.setItem(this.STORAGE_KEY, encrypted);
 
     return { deleted, expired };
   }
 
   // Event management
-  static saveEvent(event: Omit<FlaggedEvent, 'expiresAt'>): FlaggedEvent {
+  static async saveEvent(event: Omit<FlaggedEvent, 'expiresAt'>): Promise<FlaggedEvent> {
     const fullEvent: FlaggedEvent = {
       ...event,
       expiresAt: new Date(Date.now() + this.RETENTION_HOURS * 60 * 60 * 1000)
     };
 
-    const events = this.getEvents();
+    const events = await this.getEvents();
     events.push(fullEvent);
-    localStorage.setItem(this.EVENTS_KEY, JSON.stringify(events));
+    const encrypted = await CryptoStorage.encrypt(JSON.stringify(events));
+    localStorage.setItem(this.EVENTS_KEY, encrypted);
 
     return fullEvent;
   }
 
-  static getEvents(): FlaggedEvent[] {
+  static async getEvents(): Promise<FlaggedEvent[]> {
     const data = localStorage.getItem(this.EVENTS_KEY);
     if (!data) return [];
-
-    const events = JSON.parse(data);
+    let decrypted: string;
+    try {
+      decrypted = await CryptoStorage.decrypt(data);
+    } catch (e) {
+      // If decryption fails, treat as no data
+      return [];
+    }
+    const events = JSON.parse(decrypted);
     return events.map((e: any) => ({
       ...e,
       timestamp: new Date(e.timestamp),
@@ -122,19 +190,21 @@ export class RecordingManager {
     }));
   }
 
-  static getEventsByStudent(studentId: string): FlaggedEvent[] {
-    return this.getEvents()
+  static async getEventsByStudent(studentId: string): Promise<FlaggedEvent[]> {
+    const events = await this.getEvents();
+    return events
       .filter(e => e.studentId === studentId)
       .filter(e => e.expiresAt > new Date())
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   }
 
-  static getActiveEvents(): FlaggedEvent[] {
-    return this.getEvents().filter(e => e.expiresAt > new Date());
+  static async getActiveEvents(): Promise<FlaggedEvent[]> {
+    const events = await this.getEvents();
+    return events.filter(e => e.expiresAt > new Date());
   }
 
-  static cleanupExpiredEvents(): number {
-    const events = this.getEvents();
+  static async cleanupExpiredEvents(): Promise<number> {
+    const events = await this.getEvents();
     const now = new Date();
 
     const activeEvents = events.filter(event => {
@@ -145,15 +215,16 @@ export class RecordingManager {
       return true;
     });
 
-    localStorage.setItem(this.EVENTS_KEY, JSON.stringify(activeEvents));
+    const encrypted = await CryptoStorage.encrypt(JSON.stringify(activeEvents));
+    localStorage.setItem(this.EVENTS_KEY, encrypted);
 
     return events.length - activeEvents.length;
   }
 
   // Report generation
-  static generateStudentReport(studentId: string, studentName: string, detailed: boolean = false) {
-    const events = this.getEventsByStudent(studentId);
-    const recordings = this.getActiveRecordings().filter(r => r.studentId === studentId);
+  static async generateStudentReport(studentId: string, studentName: string, detailed: boolean = false) {
+    const events = await this.getEventsByStudent(studentId);
+    const recordings = (await this.getActiveRecordings()).filter(r => r.studentId === studentId);
 
     const report = {
       studentInfo: {
@@ -214,12 +285,8 @@ export class RecordingManager {
     // Run cleanup every hour
     const interval = setInterval(() => {
       console.log('Running scheduled cleanup...');
-      const recordingsResult = this.cleanupExpiredRecordings();
-      const eventsDeleted = this.cleanupExpiredEvents();
-
-      if (recordingsResult.deleted > 0 || recordingsResult.expired > 0 || eventsDeleted > 0) {
-        console.log(`Cleanup completed: ${recordingsResult.deleted} recordings deleted, ${recordingsResult.expired} expired, ${eventsDeleted} events deleted`);
-      }
+      this.cleanupExpiredRecordings();
+      this.cleanupExpiredEvents();
     }, 60 * 60 * 1000); // 1 hour
 
     // Run initial cleanup
