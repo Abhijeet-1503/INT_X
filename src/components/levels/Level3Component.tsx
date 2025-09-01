@@ -53,6 +53,8 @@ const Level3Component: React.FC<Level3ComponentProps> = ({ onComplete }) => {
   const [sideCameraActive, setSideCameraActive] = useState(false);
   const [mobileConnectionUrl, setMobileConnectionUrl] = useState('');
   const [showQRCode, setShowQRCode] = useState(false);
+  const [sideCameraAuthToken, setSideCameraAuthToken] = useState<string | null>(null);
+  const [sideCameraAuthInput, setSideCameraAuthInput] = useState('');
   
   // Analysis data
   const [faceDetected, setFaceDetected] = useState(false);
@@ -65,11 +67,16 @@ const Level3Component: React.FC<Level3ComponentProps> = ({ onComplete }) => {
   const [alerts, setAlerts] = useState<AlertData[]>([]);
   const [activeView, setActiveView] = useState("dual");
 
-  // Generate QR code URL for mobile connection
+  // Generate QR code URL for mobile connection with cryptographically secure auth token
   const generateMobileURL = () => {
     const baseUrl = window.location.origin;
     const sessionId = `session_${Date.now()}`;
-    const mobileUrl = `${baseUrl}/mobile-camera/${sessionId}`;
+    // Use crypto.getRandomValues for a secure token
+    const array = new Uint32Array(4);
+    window.crypto.getRandomValues(array);
+    const authToken = Array.from(array, dec => dec.toString(36)).join('');
+    setSideCameraAuthToken(authToken);
+    const mobileUrl = `${baseUrl}/mobile-camera/${sessionId}?authToken=${authToken}`;
     setMobileConnectionUrl(mobileUrl);
     setShowQRCode(true);
     toast.info("QR code generated for mobile camera connection");
@@ -193,8 +200,16 @@ const Level3Component: React.FC<Level3ComponentProps> = ({ onComplete }) => {
     }
   };
 
+  // Secure side camera connection: require correct auth token
   const connectSideCamera = () => {
-    // Simulate side camera connection
+    if (!sideCameraAuthToken) {
+      toast.error("No authentication token generated. Please generate QR code first.");
+      return;
+    }
+    if (sideCameraAuthInput.trim() !== sideCameraAuthToken) {
+      toast.error("Invalid authentication token. Please scan the QR code and enter the correct token.");
+      return;
+    }
     setSideCameraActive(true);
     toast.success("Side camera connected via mobile device!");
   };
@@ -361,6 +376,20 @@ const Level3Component: React.FC<Level3ComponentProps> = ({ onComplete }) => {
                   Connect
                 </Button>
               </div>
+              {/* Auth token input for side camera connection */}
+              {!sideCameraActive && sideCameraAuthToken && (
+                <div className="mt-2">
+                  <Label htmlFor="side-auth-token" className="text-xs">Enter Auth Token from QR Code</Label>
+                  <Input
+                    id="side-auth-token"
+                    type="text"
+                    value={sideCameraAuthInput}
+                    onChange={e => setSideCameraAuthInput(e.target.value)}
+                    className="text-xs mt-1"
+                    autoComplete="off"
+                  />
+                </div>
+              )}
             </div>
           </div>
 
@@ -376,6 +405,9 @@ const Level3Component: React.FC<Level3ComponentProps> = ({ onComplete }) => {
                   readOnly 
                   className="text-xs text-center"
                 />
+                <div className="mt-2 text-xs text-gray-500 break-all">
+                  <span className="font-semibold">Auth Token:</span> {sideCameraAuthToken}
+                </div>
               </div>
             </div>
           )}
