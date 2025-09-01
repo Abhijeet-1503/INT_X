@@ -19,14 +19,10 @@ import MobileWireless from "./pages/MobileWireless";
 import MobileApp from "./pages/MobileAppBasic";
 import NotFound from "./pages/NotFound";
 import StartSession from "./pages/StartSession";
-import { initializeAPIKeys } from "./lib/apiUtils";
-import { refreshAPIKeys } from "./lib/initializeKeys";
 import ErrorBoundary from "./components/ErrorBoundary";
 const queryClient = new QueryClient();
 
-// Initialize and refresh API keys on app startup
-initializeAPIKeys();
-refreshAPIKeys();
+// Removed insecure API key initialization and refresh from client-side
 
 const App = () => {
 
