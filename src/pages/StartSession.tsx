@@ -19,8 +19,7 @@ const StartSession = () => {
     if (user) {
       setIsAuthenticated(true);
     } else {
-      // For demo purposes, auto-authenticate with demo user
-      setIsAuthenticated(true);
+      setIsAuthenticated(false);
     }
   }, [user]);
 
