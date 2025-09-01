@@ -8,31 +8,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { Shield, User, UserCheck, Crown, Copy } from "lucide-react";
+import { Shield, User, UserCheck, Crown } from "lucide-react";
 import { toast } from "sonner";
 import FirebaseSetupGuide from "@/components/FirebaseSetupGuide";
 
-// Predefined admin credentials for easy access
-const ADMIN_CREDENTIALS = [
-  {
-    email: "admin@smartproctor.com",
-    password: "admin123",
-    name: "System Administrator",
-    role: "admin" as const
-  },
-  {
-    email: "proctor@smartproctor.com", 
-    password: "proctor123",
-    name: "Senior Proctor",
-    role: "proctor" as const
-  },
-  {
-    email: "demo@smartproctor.com",
-    password: "demo123", 
-    name: "Demo User",
-    role: "student" as const
-  }
-];
+// Demo credentials have been removed for security best practices
 
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -41,16 +21,9 @@ const Auth = () => {
   const [role, setRole] = useState<'student' | 'proctor' | 'admin'>('student');
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showCredentials, setShowCredentials] = useState(false);
 
   const { signUp, signIn } = useAuth();
   const navigate = useNavigate();
-
-  const copyCredentials = (creds: typeof ADMIN_CREDENTIALS[0]) => {
-    setEmail(creds.email);
-    setPassword(creds.password);
-    toast.success(`${creds.role} credentials copied!`);
-  };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,44 +90,7 @@ const Auth = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* Demo Credentials Section */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-medium">Demo Credentials</h3>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => setShowCredentials(!showCredentials)}
-              >
-                {showCredentials ? 'Hide' : 'Show'}
-              </Button>
-            </div>
-            
-            {showCredentials && (
-              <div className="space-y-2 p-3 bg-muted/50 rounded-lg">
-                {ADMIN_CREDENTIALS.map((creds, index) => (
-                  <div key={index} className="flex items-center justify-between p-2 bg-background rounded border">
-                    <div className="flex items-center gap-2">
-                      {creds.role === 'admin' ? <Crown className="w-4 h-4 text-yellow-500" /> :
-                       creds.role === 'proctor' ? <UserCheck className="w-4 h-4 text-blue-500" /> :
-                       <User className="w-4 h-4 text-green-500" />}
-                      <div>
-                        <p className="text-sm font-medium">{creds.name}</p>
-                        <p className="text-xs text-muted-foreground">{creds.email}</p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => copyCredentials(creds)}
-                    >
-                      <Copy className="w-3 h-3" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          {/* Demo Credentials Section Removed for Security */}
 
           <Tabs defaultValue="signin" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
