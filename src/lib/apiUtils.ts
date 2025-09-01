@@ -11,11 +11,11 @@ export class APIUtils {
   private static readonly OPENAI_KEY = 'openai-api-key';
   private static readonly PYTHON_URL = 'python-backend-url';
 
-  // Default values - Placeholder API keys (replace with your own)
+  // Default values - No hardcoded API keys or URLs
   private static readonly DEFAULTS = {
-    geminiKey: "YOUR_GEMINI_API_KEY_HERE",
-    openaiKey: "YOUR_OPENAI_API_KEY_HERE", 
-    pythonBackendUrl: "http://localhost:8000"
+    geminiKey: '',
+    openaiKey: '', 
+    pythonBackendUrl: ''
   };
 
   static getAPIConfig(): APIConfig {
@@ -47,8 +47,8 @@ export class APIUtils {
   }
 
   static getPythonBackendUrl(): string {
-    // Use the working backend URL
-    return "http://localhost:8000";
+    // Use the backend URL from config, fallback to empty string
+    return this.getAPIConfig().pythonBackendUrl;
   }
 
   static saveGeminiKey(key: string): void {
@@ -74,9 +74,9 @@ export class APIUtils {
     try {
       const key = this.getGeminiKey();
       
-      // Skip test for demo keys
-      if (key.includes('Demo') || key.includes('YOUR_')) {
-        console.log('Using demo Gemini key - skipping connection test');
+      // Skip test for empty or demo keys
+      if (!key || key.includes('Demo') || key.includes('YOUR_')) {
+        console.log('No valid Gemini key provided - skipping connection test');
         return false;
       }
       
@@ -92,9 +92,9 @@ export class APIUtils {
     try {
       const key = this.getOpenAIKey();
       
-      // Skip test for demo keys
-      if (key.includes('demo') || key.includes('YOUR_')) {
-        console.log('Using demo OpenAI key - skipping connection test');
+      // Skip test for empty or demo keys
+      if (!key || key.includes('demo') || key.includes('YOUR_')) {
+        console.log('No valid OpenAI key provided - skipping connection test');
         return false;
       }
       
@@ -113,6 +113,10 @@ export class APIUtils {
   static async testPythonBackend(): Promise<boolean> {
     try {
       const url = this.getPythonBackendUrl();
+      if (!url) {
+        console.log('No Python backend URL provided - skipping connection test');
+        return false;
+      }
       const response = await fetch(`${url}/health`);
       return response.ok;
     } catch (error) {
@@ -127,13 +131,13 @@ export const initializeAPIKeys = (): void => {
   const config = APIUtils.getAPIConfig();
 
   // Save defaults if not already saved
-  if (!localStorage.getItem(APIUtils['GEMINI_KEY'])) {
+  if (!localStorage.getItem(APIUtils['GEMINI_KEY']) && config.geminiKey) {
     APIUtils.saveGeminiKey(config.geminiKey);
   }
-  if (!localStorage.getItem(APIUtils['OPENAI_KEY'])) {
+  if (!localStorage.getItem(APIUtils['OPENAI_KEY']) && config.openaiKey) {
     APIUtils.saveOpenAIKey(config.openaiKey);
   }
-  if (!localStorage.getItem(APIUtils['PYTHON_URL'])) {
+  if (!localStorage.getItem(APIUtils['PYTHON_URL']) && config.pythonBackendUrl) {
     APIUtils.savePythonBackendUrl(config.pythonBackendUrl);
   }
 };
